@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JIIT - Burglar Alarm Simulator (Fixed)</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent-green: #00c853;
+            --accent-red: #ff3d00;
+            --accent-blue: #2979ff;
+            --border-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { margin: 0 0 5px 0; color: var(--accent-blue); text-align: center; }
+        h3 { margin: 0 0 30px 0; font-weight: 400; color: var(--text-secondary); text-align: center; font-size: 0.9rem; }
+
+        /* --- Main Layout --- */
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+            max-width: 1100px;
+            width: 100%;
+        }
+
+        @media (max-width: 800px) {
+            .container { grid-template-columns: 1fr; }
+        }
+
+        /* --- Visual Simulator --- */
+        .sim-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            height: 320px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        /* Laser Component */
+        .component-visual {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 2;
+            cursor: help;
+            transition: transform 0.2s;
+        }
+        .component-visual:hover { transform: scale(1.1); }
+
+        .laser-box {
+            width: 50px; height: 50px;
+            background: linear-gradient(135deg, #555, #333);
+            border-right: 6px solid var(--accent-red);
+            border-radius: 4px;
+            box-shadow: 0 0 10px rgba(255, 61, 0, 0.2);
+        }
+
+        /* LDR Component */
+        .ldr-box {
+            width: 50px; height: 50px;
+            background: #333;
+            border: 2px solid #ccc;
+            border-radius: 50%;
+            position: relative;
+        }
+        .ldr-squiggly {
+            position: absolute; top: 15px; left: 10px; right: 10px; bottom: 15px;
+            border-top: 2px solid #aaa; border-bottom: 2px solid #aaa;
+        }
+
+        /* The Beam */
+        .laser-beam {
+            position: absolute;
+            left: 90px; right: 90px; top: 50%;
+            height: 3px;
+            background: var(--accent-red);
+            box-shadow: 0 0 12px var(--accent-red);
+            transform: translateY(-50%);
+            transition: opacity 0.1s;
+            z-index: 1;
+        }
+
+        /* The Intruder Hand */
+        .intruder-hand {
+            position: absolute;
+            left: 50%; top: -150px;
+            width: 60px; height: 160px;
+            background: #dcb;
+            border: 3px solid #000;
+            border-radius: 0 0 15px 15px;
+            transform: translateX(-50%);
+            transition: top 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 3;
+            display: flex; 
+            align-items: flex-end; 
+            justify-content: center;
+            font-weight: bold; 
+            color: black; 
+            padding-bottom: 10px;
+        }
+        .intruder-hand.active { top: 0; }
+
+        /* --- Data Dashboard --- */
+        .dashboard {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .stat-row {
+            display: flex; justify-content: space-between;
+            border-bottom: 1px solid #333; padding-bottom: 8px;
+        }
+        .stat-label { color: var(--text-secondary); font-size: 0.9rem; }
+        .stat-val { font-family: monospace; font-size: 1.1rem; font-weight: bold; }
+        
+        .safe-text { color: var(--accent-green); }
+        .danger-text { color: var(--accent-red); }
+
+        /* Transistor & Buzzer Indicators */
+        .indicator-box {
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 0.9rem;
+            border: 1px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .indicator-box.active-buzzer {
+            background: var(--accent-red);
+            color: white;
+            border-color: #ff8a80;
+            animation: pulse 0.5s infinite alternate;
+        }
+
+        @keyframes pulse { from { box-shadow: 0 0 5px var(--accent-red); } to { box-shadow: 0 0 20px var(--accent-red); } }
+
+        /* --- Controls --- */
+        .control-panel {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        
+        button {
+            background: linear-gradient(to bottom, #e0e0e0, #ccc);
+            color: #222;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.96); }
+        button.btn-reset { background: linear-gradient(to bottom, #ff5252, #d32f2f); color: white; }
+
+        /* --- Component Roles Section --- */
+        .roles-grid {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .role-card {
+            background: #252525;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent-blue);
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+
+        .role-card h4 { margin: 0 0 8px 0; color: #fff; font-size: 1rem; }
+
+    </style>
+</head>
+<body>
+
+    <h1>Burglar Alarm System</h1>
+    <h3>JIIT Project | Interactive Logic Model</h3>
+
+    <div class="container">
+        
+        <div class="sim-box">
+            <div class="component-visual" title="Laser Diode">
+                <div class="laser-box"></div>
+                <span style="margin-top:8px; font-size:0.8rem;">Laser Source</span>
+            </div>
+
+            <div class="laser-beam" id="beam"></div>
+
+            <div class="intruder-hand" id="intruder">BLOCK</div>
+
+            <div class="component-visual" title="Light Dependent Resistor">
+                <div class="ldr-box"><div class="ldr-squiggly"></div></div>
+                <span style="margin-top:8px; font-size:0.8rem;">LDR Sensor</span>
+            </div>
+        </div>
+
+        <div class="dashboard">
+            <div class="stat-row">
+                <span class="stat-label">System State</span>
+                <span id="sysState" class="stat-val safe-text">SECURE</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">LDR Resistance (R<sub>LDR</sub>)</span>
+                <span id="ldrRes" class="stat-val">100 &Omega;</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Base Voltage (V<sub>base</sub>)</span>
+                <span id="vBase" class="stat-val">0.09 V</span>
+            </div>
+            <div class="stat-row" style="border:none;">
+                <span class="stat-label">Threshold needed</span>
+                <span class="stat-val" style="color:#777;">> 0.7 V</span>
+            </div>
+
+            <div class="indicator-box" id="transistorBox">
+                <strong>BC547 Transistor</strong><br>
+                Status: <span id="tStatus">OFF (Cut-off)</span>
+            </div>
+
+            <div class="indicator-box" id="buzzerBox">
+                <strong>Piezo Buzzer</strong><br>
+                <span id="buzzerText">Silent</span>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <button id="actionBtn" onclick="toggleIntrusion()">SIMULATE INTRUSION</button>
+        </div>
+
+        <div class="roles-grid">
+            <div class="role-card">
+                <h4>Laser Diode (Source)</h4>
+                <p>Provides a concentrated, coherent beam of light to keep the LDR conductive.</p>
+            </div>
+            <div class="role-card">
+                <h4>LDR (Sensor)</h4>
+                <p>Light Dependent Resistor. It has high resistance in the dark (M&Omega;) and low resistance in light (100&Omega;).</p>
+            </div>
+            <div class="role-card">
+                <h4>BC547 (Switch)</h4>
+                <p>NPN Bipolar Junction Transistor. Acts as an electronic switch to drive the buzzer when Base voltage exceeds 0.7V.</p>
+            </div>
+            <div class="role-card">
+                <h4>Piezo Buzzer (Output)</h4>
+                <p>Active buzzer module that generates an audible alarm sound when current flows through the transistor.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let isIntruding = false;
+        
+        // Physics Constants
+        const VCC = 9; // 9V Battery
+        const R1 = 10000; // 10k Ohm Resistor
+
+        // Elements
+        const beam = document.getElementById('beam');
+        const intruder = document.getElementById('intruder');
+        const sysState = document.getElementById('sysState');
+        const ldrResDisp = document.getElementById('ldrRes');
+        const vBaseDisp = document.getElementById('vBase');
+        const tStatus = document.getElementById('tStatus');
+        const transistorBox = document.getElementById('transistorBox');
+        const buzzerBox = document.getElementById('buzzerBox');
+        const buzzerText = document.getElementById('buzzerText');
+        const btn = document.getElementById('actionBtn');
+
+        function toggleIntrusion() {
+            isIntruding = !isIntruding;
+            
+            if(isIntruding) {
+                // --- INTRUSION STATE ---
+                intruder.classList.add('active');
+                beam.style.opacity = '0';
+                
+                btn.textContent = "RESET SYSTEM";
+                btn.classList.add('btn-reset');
+
+                // Physics Update
+                updatePhysics(1000000); // 1 Mega Ohm (Dark)
+            } else {
+                // --- SECURE STATE ---
+                intruder.classList.remove('active');
+                beam.style.opacity = '1';
+
+                btn.textContent = "SIMULATE INTRUSION";
+                btn.classList.remove('btn-reset');
+
+                // Physics Update
+                updatePhysics(100); // 100 Ohm (Light)
+            }
+        }
+
+        function updatePhysics(r_ldr) {
+            // Calculate Base Voltage: V_base = Vcc * (R_ldr / (R1 + R_ldr))
+            let v_base = VCC * (r_ldr / (R1 + r_ldr));
+            
+            // Update Display Values
+            vBaseDisp.textContent = v_base.toFixed(2) + " V";
+            ldrResDisp.innerHTML = (r_ldr >= 1000000) ? "> 1 M&Omega;" : "~100 &Omega;";
+
+            // Check Threshold (0.7V)
+            if (v_base > 0.7) {
+                // ALARM ON
+                sysState.textContent = "INTRUSION DETECTED!";
+                sysState.className = "stat-val danger-text";
+                
+                tStatus.textContent = "ON (Saturation)";
+                transistorBox.style.borderColor = "#00c853"; // Green border implies flow
+                
+                buzzerBox.className = "indicator-box active-buzzer";
+                buzzerText.textContent = "ALARM RINGING";
+            } else {
+                // ALARM OFF
+                sysState.textContent = "SECURE";
+                sysState.className = "stat-val safe-text";
+                
+                tStatus.textContent = "OFF (Cut-off)";
+                transistorBox.style.borderColor = "transparent";
+
+                buzzerBox.className = "indicator-box";
+                buzzerText.textContent = "Silent";
+            }
+        }
+    </script>
+</body>
+</html>
