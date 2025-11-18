@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JIIT - Burglar Alarm System (Full Visual + Audio)</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-primary: #e0e0e0;
+            --accent-green: #00e676;
+            --accent-red: #ff1744;
+            --wire-off: #444;
+            --wire-on: #00e676; /* Current flowing */
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { margin-bottom: 5px; color: #2979ff; }
+        p { color: #aaa; font-size: 0.9rem; margin-top: 0; }
+
+        /* --- The Visual Simulator Box --- */
+        .sim-box {
+            background: var(--card-bg);
+            border: 1px solid #333;
+            border-radius: 15px;
+            padding: 40px 20px;
+            width: 100%;
+            max-width: 900px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        /* 1. LASER SOURCE */
+        .laser-unit {
+            display: flex; flex-direction: column; align-items: center; z-index: 2;
+        }
+        .laser-body {
+            width: 40px; height: 40px;
+            background: #444;
+            border-right: 4px solid var(--accent-red);
+            border-radius: 4px;
+            box-shadow: 0 0 10px rgba(255, 23, 68, 0.2);
+        }
+
+        /* 2. THE BEAM & INTRUDER */
+        .beam-path {
+            position: relative;
+            flex-grow: 1; /* Fill space between Laser and LDR */
+            height: 60px;
+            display: flex; align-items: center;
+        }
+        .laser-beam {
+            width: 100%; height: 3px;
+            background: var(--accent-red);
+            box-shadow: 0 0 12px var(--accent-red);
+            transition: opacity 0.1s;
+        }
+        .intruder {
+            position: absolute; left: 50%; top: -100px;
+            width: 40px; height: 120px;
+            background: #dcb; border: 2px solid #000;
+            border-radius: 0 0 10px 10px;
+            transform: translateX(-50%);
+            transition: top 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+            z-index: 5;
+            display: flex; align-items: flex-end; justify-content: center;
+            color: #000; font-weight: bold; font-size: 0.7rem; padding-bottom: 5px;
+        }
+        .intruder.active { top: -20px; } /* Blocks beam */
+
+        /* 3. LDR SENSOR */
+        .ldr-unit {
+            display: flex; flex-direction: column; align-items: center; z-index: 2; margin-right: 30px;
+        }
+        .ldr-body {
+            width: 40px; height: 40px;
+            background: #222; border: 2px solid #fff; border-radius: 50%;
+            position: relative;
+        }
+        .ldr-squiggly {
+            position: absolute; top: 12px; left: 8px; right: 8px; bottom: 12px;
+            border-top: 2px solid #888; border-bottom: 2px solid #888;
+        }
+
+        /* 4. WIRES & CONNECTION */
+        .wire-segment {
+            height: 4px; width: 60px; background: var(--wire-off);
+            border-radius: 2px; transition: background 0.3s;
+            position: relative;
+        }
+        /* Label for the wire logic */
+        .wire-label {
+            position: absolute; top: -20px; width: 100%; text-align: center;
+            font-size: 0.7rem; color: #777;
+        }
+
+        /* 5. TRANSISTOR (BC547) */
+        .transistor-unit {
+            display: flex; flex-direction: column; align-items: center; z-index: 2; margin-right: 30px;
+        }
+        /* Visualizing a TO-92 Package (D-shape top down) */
+        .transistor-body {
+            width: 40px; height: 30px;
+            background: #111;
+            border-radius: 5px 5px 15px 15px; /* D-shape */
+            border-bottom: 3px solid #555;
+            position: relative;
+            transition: box-shadow 0.3s;
+        }
+        .transistor-pins {
+            display: flex; justify-content: center; gap: 5px;
+        }
+        .pin { width: 4px; height: 10px; background: #888; }
+        
+        .transistor-body.active {
+            box-shadow: 0 0 15px var(--accent-green); /* Glows when ON */
+            border-bottom-color: var(--accent-green);
+        }
+
+        /* 6. BUZZER */
+        .buzzer-unit {
+            display: flex; flex-direction: column; align-items: center; z-index: 2;
+        }
+        .buzzer-body {
+            width: 50px; height: 50px;
+            background: #333; border-radius: 50%;
+            border: 4px solid #555;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 1.5rem; color: #555;
+            transition: all 0.2s;
+        }
+        .buzzer-body.ringing {
+            background: var(--accent-red); border-color: #ff5252; color: white;
+            animation: shake 0.5s infinite;
+            box-shadow: 0 0 20px var(--accent-red);
+        }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        /* --- Dashboard --- */
+        .dashboard {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+            width: 100%; max-width: 900px;
+        }
+        .card {
+            background: var(--card-bg); border: 1px solid #333;
+            padding: 15px; border-radius: 10px;
+        }
+        .card h3 { margin: 0 0 10px 0; font-size: 0.9rem; color: #888; }
+        .data-val { font-size: 1.2rem; font-weight: bold; font-family: monospace; }
+        
+        button {
+            margin-top: 30px;
+            padding: 15px 40px; background: #e0e0e0; color: #000;
+            border: none; border-radius: 30px; font-size: 1rem; font-weight: bold;
+            cursor: pointer; transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.95); }
+
+        /* Helper Labels */
+        .label-text { font-size: 0.75rem; margin-top: 8px; color: #666; }
+
+    </style>
+</head>
+<body>
+
+    <h1>Burglar Alarm System</h1>
+    [cite_start]<p>Logic: Laser → LDR → Transistor (Switch) → Buzzer [cite: 16-19]</p>
+
+    <div class="sim-box">
+        
+        <div class="laser-unit">
+            <div class="laser-body"></div>
+            <span class="label-text">Laser</span>
+        </div>
+
+        <div class="beam-path">
+            <div class="laser-beam" id="beam"></div>
+            <div class="intruder" id="intruder">HAND</div>
+        </div>
+
+        <div class="ldr-unit">
+            <div class="ldr-body"><div class="ldr-squiggly"></div></div>
+            <span class="label-text">LDR</span>
+        </div>
+
+        <div class="wire-segment" id="wireBase">
+            <span class="wire-label">Base Signal</span>
+        </div>
+
+        <div class="transistor-unit">
+            <div class="transistor-body" id="transistorGraphic"></div>
+            <div class="transistor-pins"><div class="pin"></div><div class="pin"></div><div class="pin"></div></div>
+            <span class="label-text">BC547 (NPN)</span>
+        </div>
+
+        <div class="wire-segment" id="wireOut">
+            <span class="wire-label">Output</span>
+        </div>
+
+        <div class="buzzer-unit">
+            <div class="buzzer-body" id="buzzerGraphic">♫</div>
+            <span class="label-text">Buzzer</span>
+        </div>
+
+    </div>
+
+    <div class="dashboard">
+        <div class="card">
+            <h3>LDR Resistance</h3>
+            <div class="data-val" id="ldrData">100 Ω</div>
+            <div style="font-size:0.8rem; color:#555;">Low in Light</div>
+        </div>
+        <div class="card">
+            <h3>Base Voltage (V<sub>base</sub>)</h3>
+            <div class="data-val" id="vBaseData">0.09 V</div>
+            <div style="font-size:0.8rem; color:#555;">Needs > 0.7V to ON</div>
+        </div>
+        <div class="card">
+            <h3>System Status</h3>
+            <div class="data-val" id="statusData" style="color:var(--accent-green)">SECURE</div>
+        </div>
+    </div>
+
+    <button id="actionBtn" onclick="toggleIntrusion()">BLOCK LASER / INTRUDE</button>
+
+    <script>
+        let isIntruder = false;
+        const VCC = 9; 
+        const R1 = 10000; // 10k
+
+        // --- AUDIO SYSTEM START ---
+        let audioCtx = null;
+        let oscillator = null;
+        let gainNode = null;
+        let pulseInterval = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function startAlarmSound() {
+            initAudio();
+            if (oscillator) return; // Already running
+
+            oscillator = audioCtx.createOscillator();
+            gainNode = audioCtx.createGain();
+
+            // Use Sawtooth wave (better than square/sine for alarms)
+            oscillator.type = 'sawtooth'; 
+            oscillator.frequency.value = 1000; // 1kHz Tone
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.start();
+
+            // Pulse the volume (Beep... Beep... Beep...)
+            let pulseState = true;
+            pulseInterval = setInterval(() => {
+                if(gainNode) {
+                    // Toggle volume between 0.1 and 0
+                    gainNode.gain.setTargetAtTime(pulseState ? 0.1 : 0, audioCtx.currentTime, 0.05);
+                    pulseState = !pulseState;
+                }
+            }, 400); // Pulse every 400ms
+        }
+
+        function stopAlarmSound() {
+            if (oscillator) {
+                oscillator.stop();
+                oscillator.disconnect();
+                oscillator = null;
+            }
+            if (pulseInterval) {
+                clearInterval(pulseInterval);
+                pulseInterval = null;
+            }
+        }
+        // --- AUDIO SYSTEM END ---
+
+        function toggleIntrusion() {
+            isIntruder = !isIntruder;
+            
+            // Init audio on interaction to satisfy browser permissions
+            initAudio();
+
+            // Elements
+            const beam = document.getElementById('beam');
+            const intruder = document.getElementById('intruder');
+            const transistor = document.getElementById('transistorGraphic');
+            const buzzer = document.getElementById('buzzerGraphic');
+            const wireBase = document.getElementById('wireBase');
+            const wireOut = document.getElementById('wireOut');
+            const btn = document.getElementById('actionBtn');
+
+            // Data Text
+            const ldrTxt = document.getElementById('ldrData');
+            const vBaseTxt = document.getElementById('vBaseData');
+            const statusTxt = document.getElementById('statusData');
+
+            let r_ldr;
+
+            if (isIntruder) {
+                // --- INTRUSION STATE (DARK) ---
+                intruder.classList.add('active');
+                beam.style.opacity = '0';
+                btn.innerText = "RESET SYSTEM";
+                btn.style.background = "#ff1744";
+                btn.style.color = "white";
+                
+                r_ldr = 1000000; // 1M Ohm
+                ldrTxt.innerText = "> 1 MΩ (Dark)";
+            } else {
+                // --- SECURE STATE (LIGHT) ---
+                intruder.classList.remove('active');
+                beam.style.opacity = '1';
+                btn.innerText = "BLOCK LASER / INTRUDE";
+                btn.style.background = "#e0e0e0";
+                btn.style.color = "black";
+
+                r_ldr = 100; // 100 Ohm
+                ldrTxt.innerText = "~100 Ω (Light)";
+            }
+
+            // Math Logic
+            let v_base = VCC * (r_ldr / (R1 + r_ldr));
+            vBaseTxt.innerText = v_base.toFixed(2) + " V";
+
+            // Transistor Switching Logic
+            if (v_base > 0.7) {
+                // ON
+                transistor.classList.add('active'); // Glows Green
+                buzzer.classList.add('ringing');    // Shakes Red
+                wireBase.style.background = "var(--accent-green)"; // Signal flows
+                wireOut.style.background = "var(--accent-red)";    // Power flows
+                
+                statusTxt.innerText = "INTRUDER DETECTED";
+                statusTxt.style.color = "var(--accent-red)";
+
+                startAlarmSound(); // <--- SOUND ON
+            } else {
+                // OFF
+                transistor.classList.remove('active');
+                buzzer.classList.remove('ringing');
+                wireBase.style.background = "var(--wire-off)";
+                wireOut.style.background = "var(--wire-off)";
+                
+                statusTxt.innerText = "SECURE";
+                statusTxt.style.color = "var(--accent-green)";
+
+                stopAlarmSound(); // <--- SOUND OFF
+            }
+        }
+    </script>
+</body>
+</html>
